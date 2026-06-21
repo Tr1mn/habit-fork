@@ -1,0 +1,35 @@
+# secrets / env
+.env
+.env.*
+*.key
+secrets.*
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+.cache/
+npm-debug.log*
+
+# ml models / generated output
+models/
+*.safetensors
+*.ckpt
+*.bin
+outputs/
+generated/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

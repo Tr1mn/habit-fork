@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Fork — твоё будущее по привычкам</title>
+<style>
+  :root{
+    --bg:#0c0d12; --bg2:#14161f; --card:#181b26; --line:#262a38;
+    --txt:#eef0f6; --muted:#9aa0b4; --hint:#6b7185;
+    --good:#1d9e75; --good-bg:#10231d; --bad:#d85a30; --bad-bg:#27160f;
+    --amber:#ef9f27; --amber-bg:#2a1f0c; --accent:#7f77dd; --accent2:#5dcaa5;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%, #1a1d2b 0%, var(--bg) 60%);
+    color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    min-height:100vh; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:32px 18px 64px}
+  .screen{display:none; animation:fade .45s ease both}
+  .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  h1{font-size:26px; font-weight:600; margin:0 0 6px; letter-spacing:-.02em}
+  .sub{color:var(--muted); font-size:15px; margin:0 0 26px}
+  .label{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--hint); margin:22px 0 9px}
+
+  /* photo */
+  .photo-row{display:flex; align-items:center; gap:14px}
+  .photo-drop{
+    width:74px; height:74px; border-radius:50%; border:1.5px dashed var(--line);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    background:var(--bg2); overflow:hidden; flex:0 0 auto; transition:border-color .2s;
+  }
+  .photo-drop:hover{border-color:var(--accent)}
+  .photo-drop svg{width:24px;height:24px;stroke:var(--hint)}
+  .photo-drop img{width:100%;height:100%;object-fit:cover}
+  .photo-meta b{font-size:14px; font-weight:500}
+  .photo-meta span{display:block; color:var(--hint); font-size:12.5px}
+
+  /* habit input */
+  .hb-input{display:flex; gap:8px}
+  input[type=text]{
+    flex:1; background:var(--bg2); border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:12px 14px; font-size:15px; outline:none; transition:border-color .2s;
+  }
+  input[type=text]:focus{border-color:var(--accent)}
+  .btn{
+    border:none; cursor:pointer; border-radius:10px; font-size:15px; font-weight:500;
+    padding:12px 16px; transition:transform .08s, background .2s, opacity .2s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn-add{background:var(--card); color:var(--txt); border:1px solid var(--line)}
+  .btn-add:hover{background:#1f2330}
+  .btn-primary{
+    width:100%; margin-top:26px; padding:15px; font-size:16px; font-weight:600;
+    background:linear-gradient(92deg,var(--accent),#9a78e6); color:#fff;
+    box-shadow:0 6px 24px rgba(127,119,221,.32);
+  }
+  .btn-primary:disabled{opacity:.4; cursor:not-allowed; box-shadow:none}
+  .ghost{background:transparent; border:1px solid var(--line); color:var(--muted); width:100%; margin-top:12px}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; min-height:8px}
+  .chip{
+    display:inline-flex; align-items:center; gap:7px; background:var(--card);
+    border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:14px;
+  }
+  .chip .x{cursor:pointer; color:var(--hint); font-weight:700; line-height:1}
+  .chip .x:hover{color:var(--bad)}
+  .count{font-size:12.5px; color:var(--hint); margin-top:10px}
+
+  /* loading */
+  #loading{position:fixed; inset:0; background:rgba(8,9,13,.92); display:none;
+    flex-direction:column; align-items:center; justify-content:center; z-index:50; gap:18px}
+  #loading.show{display:flex}
+  .orb{width:64px;height:64px;border-radius:50%;
+    background:conic-gradient(from 0deg,var(--accent),var(--accent2),var(--accent));
+    animation:spin 1.1s linear infinite; filter:blur(.3px)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loading p{color:var(--muted); font-size:15px; margin:0}
+
+  /* result */
+  .res-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px}
+  .res-head .t{font-size:18px; font-weight:600}
+  .res-head .s{color:var(--hint); font-size:12.5px}
+  .badge{font-size:11.5px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:4px 11px; white-space:nowrap}
+
+  .score-num{font-size:62px; font-weight:700; line-height:1; letter-spacing:-.03em}
+  .score-row{display:flex; align-items:baseline; gap:10px}
+  .score-row .of{color:var(--muted); font-size:15px}
+  .gauge{height:9px; border-radius:999px; background:var(--bg2); overflow:hidden; margin:14px 0 22px}
+  .gauge>i{display:block; height:100%; width:0; border-radius:999px;
+    background:linear-gradient(90deg,var(--bad),var(--amber),var(--good)); transition:width 1s cubic-bezier(.2,.8,.2,1)}
+
+  .drv{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:20px}
+  .d{font-size:12.5px; padding:5px 10px; border-radius:8px; display:inline-flex; gap:6px; align-items:center}
+  .d.up{background:var(--good-bg); color:#5dcaa5}
+  .d.down{background:var(--bad-bg); color:#f0997b}
+
+  .clash{background:var(--amber-bg); border:1px solid #5a4416; border-radius:12px; padding:12px 14px; margin-bottom:22px}
+  .clash .h{font-size:12.5px; font-weight:600; color:var(--amber); margin-bottom:3px}
+  .clash .b{font-size:14px; color:#e7c88a}
+
+  .fork{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px}
+  .fk .cap{font-size:11.5px; color:var(--muted); text-align:center; margin-bottom:6px}
+  .tile{height:168px; border-radius:12px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:9px; padding:12px; text-align:center; position:relative; overflow:hidden}
+  .tile.dark{background:linear-gradient(160deg,#1c1d22,#0d0e12); border:1px solid #2a2c34}
+  .tile.bright{background:linear-gradient(160deg,#16302a,#0f2620); border:1px solid #1d4a3e}
+  .tile svg{width:30px;height:30px}
+  .tile.dark svg{stroke:#6b7185}
+  .tile.bright svg{stroke:#5dcaa5}
+  .tile .scene{font-size:11.5px; line-height:1.4}
+  .tile.dark .scene{color:#9aa0b4}
+  .tile.bright .scene{color:#bfe6d6}
+  .tile .ph{position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.25); object-fit:cover}
+
+  .change{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:18px}
+  .change .h{font-size:13px; font-weight:600; margin-bottom:9px}
+  .change li{font-size:14px; color:var(--muted); margin:6px 0; list-style:none; display:flex; gap:8px}
+  .change li b{color:var(--good); font-weight:600}
+  .change ul{margin:0; padding:0}
+
+  .share{display:flex; gap:10px}
+  .share .btn{flex:1; background:var(--accent2); color:#04241c; font-weight:600}
+  .share .btn.alt{background:transparent; border:1px solid var(--line); color:var(--muted)}
+  .foot{text-align:center; color:var(--hint); font-size:12px; margin-top:26px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- INPUT -->
+  <section id="screen-input" class="screen active">
+    <h1>Загляни в своё будущее</h1>
+    <p class="sub">Введи свои привычки — AI покажет, кем ты станешь через 10 лет. И как это переписать.</p>
+
+    <div class="label">Твоё фото (необязательно)</div>
+    <div class="photo-row">
+      <label class="photo-drop" id="photoDrop">
+        <input type="file" id="photoInput" accept="image/*" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M3 7h3l2-2h8l2 2h3v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+      </label>
+      <div class="photo-meta">
+        <b>Добавь селфи</b>
+        <span>Станет точкой «сейчас» на развилке</span>
+      </div>
+    </div>
+
+    <div class="label">Привычки <span style="text-transform:none;letter-spacing:0">(от 3 до 20)</span></div>
+    <div class="hb-input">
+      <input type="text" id="habitInput" placeholder="напр. бегаю по утрам 3 раза в неделю" autocomplete="off">
+      <button class="btn btn-add" id="addBtn">+ Добавить</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="count" id="count">0 привычек</div>
+
+    <button class="btn btn-primary" id="goBtn" disabled>Показать моё будущее</button>
+  </section>
+
+  <!-- RESULT -->
+  <section id="screen-result" class="screen">
+    <div class="res-head">
+      <div>
+        <div class="t">Ты через 10 лет</div>
+        <div class="s">проекция AI, не предсказание</div>
+      </div>
+      <div class="badge">зеркало привычек</div>
+    </div>
+
+    <div class="score-row">
+      <span class="score-num" id="scoreNum">0</span>
+      <span class="of">/ 100 · корреляция к успеху</span>
+    </div>
+    <div class="gauge"><i id="gaugeFill"></i></div>
+
+    <div class="drv" id="drivers"></div>
+
+    <div class="clash" id="clashBox">
+      <div class="h">⚡ Конфликт привычек</div>
+      <div class="b" id="clashText"></div>
+    </div>
+
+    <div class="fork">
+      <div class="fk">
+        <div class="cap">если продолжишь</div>
+        <div class="tile dark">
+          <img class="ph" id="phNow1" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 20v-8l8-6 8 6v8"/><path d="M9 20v-5h6v5"/></svg>
+          <div class="scene" id="sceneBad">тёмная захламлённая комната, усталость</div>
+        </div>
+      </div>
+      <div class="fk">
+        <div class="cap">если изменишь 3 привычки</div>
+        <div class="tile bright">
+          <img class="ph" id="phNow2" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+          <div class="scene" id="sceneGood">светлая студия, спорт, книги, спокойствие</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change">
+      <div class="h">Измени эти 3 — и развилка уходит вправо</div>
+      <ul id="changeList"></ul>
+    </div>
+
+    <div class="share">
+      <button class="btn" onclick="alert('Здесь будет экспорт карточки в PNG для сторис')">Поделиться</button>
+      <button class="btn alt" id="restartBtn">Заново</button>
+    </div>
+
+    <div class="foot">Числа сгенерированы локальным моком. Реальный движок — Claude API + SDXL-Turbo — по плану.</div>
+  </section>
+
+</div>
+
+<div id="loading"><div class="orb"></div><p id="loadText">AI смотрит в твоё будущее…</p></div>
+
+<script>
+(function(){
+  var habits = [];
+  var photoURL = null;
+
+  var GOOD = ["спорт","бег","бега","зал","трен","фитнес","чтен","книг","читаю","медитац","йог","сон","рано","ранний","вод","воду","овощ","фрукт","учеб","учу","англ","код","програм","проект","план","эконом","копл","накопл","инвест","savings","gym","run","read","sleep","study","water","meditat","walk","ходьб"];
+  var BAD  = ["куре","курю","сигарет","вейп","алко","пиво","выпив","фастфуд","сахар","сладк","прокраст","поздно","ночь","ночью","импульс","трат","шоп","покуп","долг","кредит","азарт","ставк","игр","скролл","залип","тикток","инстаг","ютуб","сериал","фид","smoke","alcohol","junk","sugar","scroll","procrast","debt","gamble","vape"];
+
+  function classify(text){
+    var t = text.toLowerCase();
+    var g = GOOD.some(function(k){return t.indexOf(k)>-1});
+    var b = BAD.some(function(k){return t.indexOf(k)>-1});
+    var cat = g && !b ? "good" : b && !g ? "bad" : (g&&b ? "bad" : "neutral");
+    // rank 1..10 — детерминированно по длине описания + типу
+    var base = cat==="neutral" ? 3 : 6;
+    var rank = Math.min(10, base + (text.length % 4));
+    return {text:text, cat:cat, rank:rank};
+  }
+
+  function renderChips(){
+    var box = document.getElementById("chips");
+    box.innerHTML = "";
+    habits.forEach(function(h,i){
+      var c = document.createElement("span");
+      c.className="chip";
+      c.innerHTML = '<span>'+escapeHtml(h)+'</span><span class="x" data-i="'+i+'">×</span>';
+      box.appendChild(c);
+    });
+    document.getElementById("count").textContent = habits.length+" "+plural(habits.length);
+    document.getElementById("goBtn").disabled = habits.length < 3;
+  }
+  function plural(n){ n=n%100; if(n>=11&&n<=14)return"привычек"; n=n%10; if(n===1)return"привычка"; if(n>=2&&n<=4)return"привычки"; return"привычек"; }
+  function escapeHtml(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+  function addHabit(){
+    var inp = document.getElementById("habitInput");
+    var v = inp.value.trim();
+    if(!v) return;
+    if(habits.length>=20){ inp.value=""; return; }
+    habits.push(v); inp.value=""; inp.focus(); renderChips();
+  }
+
+  document.getElementById("addBtn").onclick = addHabit;
+  document.getElementById("habitInput").addEventListener("keydown",function(e){ if(e.key==="Enter") addHabit(); });
+  document.getElementById("chips").addEventListener("click",function(e){
+    if(e.target.classList.contains("x")){ habits.splice(+e.target.dataset.i,1); renderChips(); }
+  });
+
+  document.getElementById("photoInput").onchange = function(e){
+    var f = e.target.files[0]; if(!f) return;
+    photoURL = URL.createObjectURL(f);
+    document.getElementById("photoDrop").innerHTML = '<img src="'+photoURL+'">';
+  };
+
+  // mock "AI"
+  function analyze(){
+    var scored = habits.map(classify);
+    var raw = 50;
+    scored.forEach(function(h){
+      if(h.cat==="good") raw += h.rank*1.1;
+      else if(h.cat==="bad") raw -= h.rank*1.3;
+    });
+    var score = Math.max(2, Math.min(98, Math.round(raw)));
+
+    var goods = scored.filter(function(h){return h.cat==="good"}).sort(function(a,b){return b.rank-a.rank});
+    var bads  = scored.filter(function(h){return h.cat==="bad"}).sort(function(a,b){return b.rank-a.rank});
+
+    // drivers (top 2 good, top 2 bad)
+    var drivers = [];
+    goods.slice(0,2).forEach(function(h){drivers.push({dir:"up",t:short(h.text)})});
+    bads.slice(0,2).forEach(function(h){drivers.push({dir:"down",t:short(h.text)})});
+    if(drivers.length===0) drivers.push({dir:"up",t:"нейтральный набор привычек"});
+
+    // clash
+    var clash = makeClash(scored, goods, bads);
+
+    // 3 to change = worst bads, добить нейтральными если мало
+    var change = bads.slice(0,3).map(function(h){return short(h.text)});
+    while(change.length<3){
+      var nq = ["добавь спорт 3×/нед","ложись до 23:00","читай 15 мин в день","убери скролл перед сном"];
+      var cand = nq[change.length % nq.length];
+      if(change.indexOf(cand)===-1) change.push(cand); else change.push(nq[(change.length+2)%nq.length]);
+    }
+
+    // scenes
+    var bad = score<45;
+    return {
+      score:score, drivers:drivers, clash:clash, change:change,
+      sceneBad: bads.length ? "тёмная комната, "+short(bads[0].text)+", усталость" : "серые будни, прокрастинация",
+      sceneGood: goods.length ? "светлая студия, "+short(goods[0].text)+", энергия" : "спокойствие, спорт, ясная голова"
+    };
+  }
+  function short(t){ return t.length>26 ? t.slice(0,24)+"…" : t; }
+  function makeClash(all, goods, bads){
+    var t = all.map(function(h){return h.text.toLowerCase()}).join(" ");
+    var wantsMoney = /эконом|копл|накопл|инвест|savings/.test(t);
+    var spends = /трат|шоп|покуп|импульс|кредит|долг/.test(t);
+    if(wantsMoney && spends) return "Хочешь накопить, но тратишь импульсивно. Эти две тянут в разные стороны.";
+    var health = /спорт|бег|зал|сон|вод/.test(t);
+    var antiHealth = /куре|алко|поздно|ночь|фастфуд|сахар/.test(t);
+    if(health && antiHealth) return "Заботишься о теле, но добиваешь его курением/недосыпом. Половина усилий уходит впустую.";
+    if(goods.length && bads.length) return "«"+short(goods[0].text)+"» и «"+short(bads[0].text)+"» работают друг против друга.";
+    return "Явных конфликтов мало — но и сильных тянущих вверх привычек не хватает.";
+  }
+
+  function show(id){ document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active")}); document.getElementById(id).classList.add("active"); window.scrollTo(0,0); }
+
+  document.getElementById("goBtn").onclick = function(){
+    var data = analyze();
+    var L = document.getElementById("loading"); L.classList.add("show");
+    var msgs = ["AI смотрит в твоё будущее…","считаю вес каждой привычки…","рисую две версии тебя…"];
+    var i=0; var t=document.getElementById("loadText");
+    var iv=setInterval(function(){ i++; if(msgs[i]) t.textContent=msgs[i]; },650);
+    setTimeout(function(){ clearInterval(iv); L.classList.remove("show"); render(data); show("screen-result"); }, 1900);
+  };
+
+  function render(d){
+    // gauge + count up
+    document.getElementById("gaugeFill").style.width = d.score+"%";
+    var n=document.getElementById("scoreNum"), cur=0;
+    var step=Math.max(1,Math.round(d.score/28));
+    var ci=setInterval(function(){ cur+=step; if(cur>=d.score){cur=d.score;clearInterval(ci);} n.textContent=cur; },28);
+
+    var dv=document.getElementById("drivers"); dv.innerHTML="";
+    d.drivers.forEach(function(x){
+      var e=document.createElement("span"); e.className="d "+x.dir;
+      e.innerHTML=(x.dir==="up"?"▲ ":"▼ ")+escapeHtml(x.t); dv.appendChild(e);
+    });
+
+    document.getElementById("clashText").textContent = d.clash;
+    document.getElementById("sceneBad").textContent = d.sceneBad;
+    document.getElementById("sceneGood").textContent = d.sceneGood;
+
+    var cl=document.getElementById("changeList"); cl.innerHTML="";
+    d.change.forEach(function(c){ var li=document.createElement("li"); li.innerHTML='<b>→</b> '+escapeHtml(c); cl.appendChild(li); });
+
+    if(photoURL){
+      ["phNow1","phNow2"].forEach(function(id){ var im=document.getElementById(id); im.src=photoURL; im.style.display="block"; });
+    }
+  }
+
+  document.getElementById("restartBtn").onclick = function(){ show("screen-input"); };
+
+  // seed a couple examples so экран не пустой
+  ["бегаю по утрам 3 раза в неделю","читаю 20 минут перед сном","скроллю тикток до 2 ночи","трачу импульсивно на маркетплейсах","хочу накопить на квартиру"].forEach(function(h){habits.push(h)});
+  renderChips();
+})();
+</script>
+</body>
+</html>
