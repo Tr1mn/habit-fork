@@ -117,7 +117,10 @@
   .tile.dark .scene{color:#9aa0b4}
   .tile.bright .scene{color:#bfe6d6}
   .tile .ph{position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:50%;
-    border:2px solid rgba(255,255,255,.25); object-fit:cover}
+    border:2px solid rgba(255,255,255,.25); object-fit:cover; z-index:2}
+  .tile .gen{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none}
+  .tile.has-img svg,.tile.has-img .scene{display:none}
+  .tile.has-img .gen{display:block}
 
   .change{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:18px}
   .change .h{font-size:13px; font-weight:600; margin-bottom:9px}
@@ -189,7 +192,8 @@
     <div class="fork">
       <div class="fk">
         <div class="cap">если продолжишь</div>
-        <div class="tile dark">
+        <div class="tile dark" id="tileBad">
+          <img class="gen" id="genBad">
           <img class="ph" id="phNow1" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 20v-8l8-6 8 6v8"/><path d="M9 20v-5h6v5"/></svg>
           <div class="scene" id="sceneBad">тёмная захламлённая комната, усталость</div>
@@ -197,7 +201,8 @@
       </div>
       <div class="fk">
         <div class="cap">если изменишь 3 привычки</div>
-        <div class="tile bright">
+        <div class="tile bright" id="tileGood">
+          <img class="gen" id="genGood">
           <img class="ph" id="phNow2" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
           <div class="scene" id="sceneGood">светлая студия, спорт, книги, спокойствие</div>
@@ -330,37 +335,54 @@
   function show(id){ document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active")}); document.getElementById(id).classList.add("active"); window.scrollTo(0,0); }
 
   document.getElementById("goBtn").onclick = function(){
-    var data = analyze();
     var L = document.getElementById("loading"); L.classList.add("show");
     var msgs = ["AI смотрит в твоё будущее…","считаю вес каждой привычки…","рисую две версии тебя…"];
-    var i=0; var t=document.getElementById("loadText");
+    var i=0; var t=document.getElementById("loadText"); t.textContent=msgs[0];
     var iv=setInterval(function(){ i++; if(msgs[i]) t.textContent=msgs[i]; },650);
-    setTimeout(function(){ clearInterval(iv); L.classList.remove("show"); render(data); show("screen-result"); }, 1900);
+    // показываем reveal минимум ~0.9с, даже если ответ пришёл мгновенно
+    var minWait = new Promise(function(r){ setTimeout(r, 900); });
+    var work = fetch("/api/analyze", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({habits:habits})})
+      .then(function(res){ if(!res.ok) throw new Error("backend "+res.status); return res.json(); })
+      .catch(function(){ return analyze(); });  // фолбэк: локальный мок (открыли file:// без бэка)
+    Promise.all([work, minWait]).then(function(a){
+      clearInterval(iv); L.classList.remove("show"); render(a[0]); show("screen-result");
+    });
   };
 
   function render(d){
-    // gauge + count up
-    document.getElementById("gaugeFill").style.width = d.score+"%";
+    var score = d.score;
+    document.getElementById("gaugeFill").style.width = score+"%";
     var n=document.getElementById("scoreNum"), cur=0;
-    var step=Math.max(1,Math.round(d.score/28));
-    var ci=setInterval(function(){ cur+=step; if(cur>=d.score){cur=d.score;clearInterval(ci);} n.textContent=cur; },28);
+    var step=Math.max(1,Math.round(score/28));
+    var ci=setInterval(function(){ cur+=step; if(cur>=score){cur=score;clearInterval(ci);} n.textContent=cur; },28);
 
     var dv=document.getElementById("drivers"); dv.innerHTML="";
-    d.drivers.forEach(function(x){
+    (d.drivers||[]).forEach(function(x){
       var e=document.createElement("span"); e.className="d "+x.dir;
-      e.innerHTML=(x.dir==="up"?"▲ ":"▼ ")+escapeHtml(x.t); dv.appendChild(e);
+      e.innerHTML=(x.dir==="up"?"▲ ":"▼ ")+escapeHtml(x.text||x.t||""); dv.appendChild(e);
     });
 
-    document.getElementById("clashText").textContent = d.clash;
-    document.getElementById("sceneBad").textContent = d.sceneBad;
-    document.getElementById("sceneGood").textContent = d.sceneGood;
+    var clash = d.clash || "";
+    document.getElementById("clashText").textContent = clash;
+    document.getElementById("clashBox").style.display = clash ? "block" : "none";
+
+    document.getElementById("sceneBad").textContent  = d.scene_bad  || d.sceneBad  || "";
+    document.getElementById("sceneGood").textContent = d.scene_good || d.sceneGood || "";
 
     var cl=document.getElementById("changeList"); cl.innerHTML="";
-    d.change.forEach(function(c){ var li=document.createElement("li"); li.innerHTML='<b>→</b> '+escapeHtml(c); cl.appendChild(li); });
+    (d.change||[]).forEach(function(c){ var li=document.createElement("li"); li.innerHTML='<b>→</b> '+escapeHtml(c); cl.appendChild(li); });
+
+    setTile("tileBad","genBad", d.image_bad);
+    setTile("tileGood","genGood", d.image_good);
 
     if(photoURL){
       ["phNow1","phNow2"].forEach(function(id){ var im=document.getElementById(id); im.src=photoURL; im.style.display="block"; });
     }
+  }
+  function setTile(tileId, imgId, src){
+    var tile=document.getElementById(tileId), img=document.getElementById(imgId);
+    if(src){ img.src=src; tile.classList.add("has-img"); }
+    else { tile.classList.remove("has-img"); img.removeAttribute("src"); }
   }
 
   document.getElementById("restartBtn").onclick = function(){ show("screen-input"); };
